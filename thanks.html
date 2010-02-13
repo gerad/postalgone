@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Postal Gone &ndash; making it easier to go postal</title>
+    <script src="http://code.jquery.com/jquery-1.4.1.min.js"></script>
+    <script src="http://projects.allmarkedup.com/jquery_url_parser/jquery.url.packed.js"></script>
+    <link rel="stylesheet" type="text/css" href="http://yui.yahooapis.com/2.8.0r4/build/reset-fonts-grids/reset-fonts-grids.css">
+    <link rel="stylesheet" type="text/css" href="static/postalgone.css">
+  </head>
+  <body>
+    <h1>Thanks!</h1>
+    <h2>Your message has been sent.</h2>
+  </body>
+  <script>
+  $(function() {
+    var return_to = $.url.param('return_to');
+    if (return_to)
+      $(document.body).append(["<a href='",unescape(return_to),"'>Back</a>"].join(''))
+  });
+  </script>
+</html>
