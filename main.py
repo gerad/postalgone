@@ -52,12 +52,12 @@ class MailHandler(webapp.RequestHandler):
   def send_mail(self):
     msg = mail.EmailMessage()
     msg.sender = self.request.get('sender', default_value ="Postal Gone <mail@postalgone.com>")
-    from_line = 'Postal Gone message from ' + self.request.get('email', default_value="Anonymous")
+    from_line = 'Postal Gone message from ' + self.request.get('from', default_value="Anonymous")
     msg.to = self.request.get('to', default_value="Postal Gone <mail@postalgone.com>")
     msg.subject = self.request.get('subject') or from_line
-    msg.body = (from_line +
-      "\n\n" + self.request.get('body', default_value="Empty message") +
-      "\n\n" + "http://www.postalgone.com/")
+    msg.body = (self.request.get('body', default_value="Empty message") +
+      "\n\n" + from_line +
+      "\n" + "http://www.postalgone.com/")
     msg.send()
 
 def main():
