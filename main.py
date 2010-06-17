@@ -40,27 +40,26 @@ class Email(db.Model):
     log = cls()
     msg = mail.EmailMessage()
     for k, p in cls.properties().iteritems():
-      if k == 'sent_at': continue
-
-      v = request.get(k, default_value=None)
-      if v: setattr(log, k, v)
-      else: v = p.default_value()
-      if v: setattr(msg, k, v)
+      if k != 'sent_at':
+        v = request.get(k, default_value=None)
+        if v: setattr(log, k, v)
+        else: v = p.default_value()
+        if v: setattr(msg, k, v)
     msg.send()
     log.put()
 
 class MailHandler(webapp.RequestHandler):
   def get(self):
-    if not self.send_mail(): return
-    callback = self.request.get('callback')
-    if callback:
-      self.response.out.write(callback + '({ok: true})')
-    else:
-      self.redirect_to_finish()
+    if self.send_mail():
+      callback = self.request.get('callback')
+      if callback:
+        self.response.out.write(callback + '({ok: true})')
+      else:
+        self.redirect_to_finish()
 
   def post(self):
-    if not self.send_mail(): return
-    self.redirect_to_finish()
+    if self.send_mail():
+      self.redirect_to_finish()
 
   def redirect_to_finish(self, other=None):
     location = self.request.get('location')
@@ -77,12 +76,12 @@ class MailHandler(webapp.RequestHandler):
   def send_mail(self):
     try:
       Email.send(self.request)
-      return True
     except Exception, err:
       self.error(500)
       logging.error(traceback.format_exc())
       self.response.out.write(str(err))
       return False
+    return True
 
 def main():
   application = webapp.WSGIApplication([
