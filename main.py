@@ -19,14 +19,39 @@
 from google.appengine.ext import webapp
 from google.appengine.ext.webapp import util
 from google.appengine.api import mail
+from google.appengine.ext import db
 import urllib
+import logging
+import traceback
 
 import pdb, sys
 debugger = pdb.Pdb(stdin=sys.__stdin__, stdout=sys.__stdout__)
 
+class Email(db.Model):
+  sent_at = db.DateTimeProperty(auto_now=True)
+  sender = db.StringProperty(default="Postal Gone <mail@postalgone.com>")
+  to = db.StringProperty(default="Anonymous")
+  subject = db.StringProperty(default="Message from Postal Gone")
+  body = db.TextProperty()
+  html = db.TextProperty()
+
+  @classmethod
+  def send(cls, request):
+    log = cls()
+    msg = mail.EmailMessage()
+    for k, p in cls.properties().iteritems():
+      if k == 'sent_at': continue
+
+      v = request.get(k, default_value=None)
+      if v: setattr(log, k, v)
+      else: v = p.default_value()
+      if v: setattr(msg, k, v)
+    msg.send()
+    log.put()
+
 class MailHandler(webapp.RequestHandler):
   def get(self):
-    self.send_mail()
+    if not self.send_mail(): return
     callback = self.request.get('callback')
     if callback:
       self.response.out.write(callback + '({ok: true})')
@@ -34,7 +59,7 @@ class MailHandler(webapp.RequestHandler):
       self.redirect_to_finish()
 
   def post(self):
-    self.send_mail()
+    if not self.send_mail(): return
     self.redirect_to_finish()
 
   def redirect_to_finish(self, other=None):
@@ -50,15 +75,14 @@ class MailHandler(webapp.RequestHandler):
       self.redirect('/thanks')
 
   def send_mail(self):
-    msg = mail.EmailMessage()
-    msg.sender = self.request.get('sender', default_value ="Postal Gone <mail@postalgone.com>")
-    from_line = 'Postal Gone message from ' + self.request.get('from', default_value="Anonymous")
-    msg.to = self.request.get('to', default_value="Postal Gone <mail@postalgone.com>")
-    msg.subject = self.request.get('subject') or from_line
-    msg.body = (self.request.get('body', default_value="Empty message") +
-      "\n\n" + from_line +
-      "\n" + "http://www.postalgone.com/")
-    msg.send()
+    try:
+      Email.send(self.request)
+      return True
+    except Exception, err:
+      self.error(500)
+      logging.error(traceback.format_exc())
+      self.response.out.write(str(err))
+      return False
 
 def main():
   application = webapp.WSGIApplication([
