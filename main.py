@@ -46,14 +46,17 @@ class Email(db.Model):
         v = request.get(k, default_value=p.default_value())
         setattr(email, k, v)
     email.debug = bool(request.get('debug', default_value=False))
-    email.request = pprint.pformat(request)
+    email.request = "\n".join([
+      "\nparams:", pprint.pformat(dict(request.params)),
+      "\nenviron:", pprint.pformat(request.environ),
+      "\nheaders:", pprint.pformat(request.headers)])
     return email
 
   def send(self):
     msg = mail.EmailMessage(sender=self.sender, to=self.to, subject=self.subject)
     if self.html: msg.html = self.html
     msg.body = (self.body or ' ')
-    if self.debug: msg.body += "\n\n%s" % self.request
+    if self.debug: msg.body += "\n%s" % self.request
 
     msg.send()
     self.put()
