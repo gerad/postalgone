@@ -20,6 +20,7 @@ from google.appengine.ext import webapp
 from google.appengine.ext.webapp import util
 from google.appengine.api import mail
 from google.appengine.ext import db
+import pprint
 import urllib
 import logging
 import traceback
@@ -28,25 +29,34 @@ import pdb, sys
 debugger = pdb.Pdb(stdin=sys.__stdin__, stdout=sys.__stdout__)
 
 class Email(db.Model):
-  sent_at = db.DateTimeProperty(auto_now=True)
   sender = db.StringProperty(default="Postal Gone <mail@postalgone.com>")
   to = db.StringProperty(default="Anonymous")
   subject = db.StringProperty(default="Message from Postal Gone")
   body = db.TextProperty()
   html = db.TextProperty()
+  debug = db.BooleanProperty(default=False)
+  request = db.TextProperty()
+  sent_at = db.DateTimeProperty(auto_now=True)
 
   @classmethod
-  def send(cls, request):
-    log = cls()
-    msg = mail.EmailMessage()
+  def from_request(cls, request):
+    email = cls()
     for k, p in cls.properties().iteritems():
-      if k != 'sent_at':
-        v = request.get(k, default_value=None)
-        if v: setattr(log, k, v)
-        else: v = p.default_value()
-        if v: setattr(msg, k, v)
+      if k not in ['request', 'sent_at', 'debug']:
+        v = request.get(k, default_value=p.default_value())
+        setattr(email, k, v)
+    email.debug = bool(request.get('debug', default_value=False))
+    email.request = pprint.pformat(request)
+    return email
+
+  def send(self):
+    msg = mail.EmailMessage(sender=self.sender, to=self.to, subject=self.subject)
+    if self.html: msg.html = self.html
+    msg.body = (self.body or ' ')
+    if self.debug: msg.body += "\n\n%s" % self.request
+
     msg.send()
-    log.put()
+    self.put()
 
 class MailHandler(webapp.RequestHandler):
   def get(self):
@@ -75,7 +85,7 @@ class MailHandler(webapp.RequestHandler):
 
   def send_mail(self):
     try:
-      Email.send(self.request)
+      Email.from_request(self.request).send()
     except Exception, err:
       self.error(500)
       logging.error(traceback.format_exc())
